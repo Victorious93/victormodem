@@ -1,0 +1,25 @@
+.pio/
+.vscode/
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.env
+*.env
+secrets*
+config.toml
+!hub/deploy/config.toml.example
+include/secrets.h
+*.pem
+*.key
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.keystore
+*.jks

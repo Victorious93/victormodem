@@ -1,0 +1,12 @@
+# /etc/victormodem/config.toml  (chmod 600, owner victormodem)
+token = "generate-with: openssl rand -hex 24"
+at_port = "auto"            # or e.g. "/dev/ttyUSB2" (SIM8262A AT port; udev symlink recommended)
+at_baud = 115200
+esp_uart = "/dev/ttyAMA0"   # Pi 5 GPIO14/15; add "dtparam=uart0=on" to /boot/firmware/config.txt
+esp_baud = 921600
+esp_enabled = true
+apn = "vzwinternet"
+data_backend = "modemmanager"   # modemmanager | rndis | none
+state_dir = "/var/lib/victormodem"
+host = "0.0.0.0"
+port = 8080

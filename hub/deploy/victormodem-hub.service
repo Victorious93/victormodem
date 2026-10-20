@@ -1,0 +1,22 @@
+[Unit]
+Description=VictorModem 5G hub (SIM8262A AT + API + ESP32 UART bridge)
+After=network-online.target ModemManager.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=victormodem
+Group=dialout
+Environment=VICTORMODEM_CONFIG=/etc/victormodem/config.toml
+ExecStart=/opt/victormodem/venv/bin/victormodem-hub
+StateDirectory=victormodem
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/victormodem
+
+[Install]
+WantedBy=multi-user.target
