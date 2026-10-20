@@ -33,15 +33,52 @@ Labels: **[V]** checked against the linked source on 2026-10-20. **[U]** unverif
 
 Plan: **LoRa is the backbone. ESP-NOW is an opportunistic fast path** between nodes that hear each other well (good RSSI, or a node discovered over ESP-NOW broadcast).
 
-### US regulatory notes (FCC Part 15.247, 902–928 MHz)
-Source: 47 CFR §15.247, https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-C/subject-group-ECFR2f2e5828339709e/section-15.247 [V for the rule text summarized here]
-- **Frequency hopping** systems with a 20 dB bandwidth under 250 kHz must use **≥ 50 channels**, with an average dwell of **≤ 0.4 s per channel in any 20 s period**, at up to 1 W conducted. (Systems with 25–50 channels need ≥ 250 kHz bandwidth and are limited to 0.25 W.)
-- **Digital modulation (DTS)** systems need a 6 dB bandwidth of ≥ 500 kHz and PSD ≤ 8 dBm/3 kHz. There is no dwell limit. Max 1 W conducted, and up to 6 dBi antenna gain before the power must be reduced.
-- Whether LoRa at BW 500 kHz qualifies as DTS, and how single-channel LoRa at 125/250 kHz (common practice in hobby mesh firmware) is treated, depends on the **module's FCC grant and how it was certified**. [U] Check the FCC ID of each board or module, and the conditions in its grant, before shipping a product.
-- Design rules we adopt anyway: **every LoRa frame takes ≤ 400 ms of airtime**, there is a per-node airtime budget (default ≤ 10% channel utilisation, adaptive backoff), and TX power is capped at the module's certified level. A consumer product sold with these boards still needs its own Part 15 compliance review. [U, get legal advice]
-- ESP-NOW runs under the ESP32-S3 module's existing 2.4 GHz grant [U per board].
+### US regulatory requirement (HARD): FCC Part 15.247, 902–928 MHz
 
-Approximate airtime (Semtech formula, CR 4/5, 8-symbol preamble, explicit header, CRC on) [U, check with the Semtech LoRa calculator]: SF7/BW125 ≈ 0.37 s for 222 B. SF9/BW125 ≈ 0.4 s for about 60 B. SF7/BW250 ≈ 0.19 s for 222 B. **Default profile: SF7 or SF8 at BW 250 kHz, 915 MHz band plan, max frame 222 B.** Use a slower long-range profile only for short control frames.
+**This is a hard requirement, not a guideline.** Every LoRa transmission from our firmware MUST meet 47 CFR §15.247 *and* stay inside the conditions of the FCC grant of the radio it runs on. Firmware that cannot prove this at compile time must not build.
+
+Rule text, from eCFR 47 CFR 15.247 [V: https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-C/subject-group-ECFR2f2e5828339709e/section-15.247]:
+- (a)(1)(i) **FHSS**: if the 20 dB BW is < 250 kHz, use **≥ 50 hop channels** with average occupancy **≤ 0.4 s per channel in any 20 s**. If it is ≥ 250 kHz (max 500 kHz), use ≥ 25 channels with ≤ 0.4 s per 10 s. Hops follow a pseudo-random list, every channel is used equally, and receivers hop in sync.
+- (a)(2) **Digital modulation (DTS)**: **6 dB BW ≥ 500 kHz**.
+- (b)(2)/(b)(3): **1 W** max conducted (FHSS ≥ 50 ch, or DTS). 0.25 W for FHSS with 25–49 channels.
+- (b)(4): if antenna gain is **> 6 dBi**, reduce conducted power by the excess dB.
+- (e) DTS **PSD ≤ 8 dBm in any 3 kHz**.
+- (g) An FHSS system using short bursts must still spread across the minimum channel count. **So single-channel LoRa at 125 or 250 kHz is neither valid FHSS nor DTS.** Our old default (SF7/8 at BW250 on one channel) was **non-compliant and is removed.**
+
+Practice elsewhere: Meshtastic ≥ 2.8 now moves US nodes off LongFast (BW250) to LongTurbo (BW500) because "Long Fast's bandwidth is not US-compliant" [V: https://meshtastic.org/docs/software/apple/user/settings/]. LoRaWAN US915 uses 64 × 125 kHz hopping uplinks (902.3–914.9 MHz, FHSS/hybrid) plus 8 × 500 kHz DTS uplinks (903.0–914.2 MHz, 1.6 MHz spacing) and 8 × 500 kHz downlinks (923.3–927.5 MHz) [U: LoRaWAN Regional Parameters RP002]. The module grants below were certified against exactly these ranges.
+
+### Chosen radio profile: **(b) DTS, LoRa BW 500 kHz, US915 region lock**
+
+We chose DTS over FHSS. It needs no hop synchronisation, which an ad-hoc flood mesh cannot easily provide (FHSS also needs ≥ 50 channels used equally and receivers that hop in sync, per (a)(1)). The cost is about 3 dB less sensitivity than BW250 at the same SF.
+
+| Parameter | Value | Enforced in code (`include/mesh_radio_limits.h`) |
+|---|---|---|
+| Region | **US915 only**. Compile-time lock (`MESH_REGION_US915`); any other region causes `#error` | #error |
+| Modulation | LoRa, **BW = 500 kHz only** [U: a lab must measure that the SX1262 BW500 6 dB BW is ≥ 500 kHz; the RAK and Seeed grants list the 903–914.2 BW500 range] | `static_assert(MESH_LORA_BW_HZ == 500000)`; there is no API to set another BW |
+| Channel plan | The 8 LoRaWAN US915 BW500 uplink centres: **903.0 + 1.6·n MHz, n = 0…7 (903.0–914.2)**. Default **n = 4 → 909.4 MHz**. Single channel (DTS has no hopping requirement) | index range-checked; frequency comes from a table |
+| Spreading factor | **SF7 default (data)**, SF8 and SF9 allowed. SF10–12 are rejected | `MESH_SF_MIN=7`, `MESH_SF_MAX=9` |
+| Coding / preamble | CR 4/5, 8-symbol preamble, explicit header, CRC on | constants |
+| Max frame | 222 B PHY payload | `MESH_MAX_PHY_PAYLOAD` |
+| Max airtime per frame | **≤ 400 ms hard cap** (not required for DTS; we keep it for fairness and for headroom). Airtime is computed with the Semtech formula before each TX, and the frame is refused if over the cap. SF7/222 B ≈ 87 ms; SF8/222 B ≈ 154 ms; SF9/222 B ≈ 277 ms [math, Semtech formula] | `mesh_tx_allowed()` |
+| Channel utilisation | ≤ 10% per node over a sliding 60 s window (an etiquette budget, not an FCC rule) | `MESH_DUTY_PERMILLE=100` |
+| TX power | `min(board grant cap, 30 dBm − max(0, G_ant − 6))`. The SX1262 maximum is +22 dBm, so §15.247's 1 W never binds; the grant does | `MESH_TX_DBM_MAX` + `mesh_clamp_tx_dbm()` |
+| PSD | At +22 dBm over 500 kHz, ≈ 22 − 10·log10(500/3) ≈ −0.2 dBm/3 kHz, well under 8 dBm [math; U: the LoRa chirp spectrum is not perfectly flat, so a lab must measure the peak 3 kHz] | implied by the power cap |
+| Antenna | **≤ 6 dBi hard limit** in firmware config, AND no higher than the gain/type listed in the board's grant (typically a 2–3 dBi dipole [U]). The power cap is reduced if G > 6 | `static_assert(MESH_ANT_GAIN_DBI <= 6)` |
+| RF exposure | Grants require ≥ 20 cm separation from people (mobile, not portable). Handheld or body-worn use is outside the grants [V: grant notes below] | documentation only |
+
+**Operating within the module's FCC grant is required.** The firmware must not use frequencies, power, modes or antennas beyond what the grant lists. A modular grant (§15.212) lets a host product reuse it if the integration follows the grant's conditions and the label says "Contains FCC ID: …". A board-level (non-modular) grant covers only that exact board as sold. Firmware that changes RF behaviour outside the tested modes may fall outside either kind of grant [U, confirm with a TCB/test lab].
+
+### Candidate boards: FCC status (checked 2026-10-20 on fccid.io, which mirrors FCC EAS)
+
+| Board | FCC ID | Grant type | 900 MHz ranges / class / power in grant | Our BW500 plan (903–914.2) inside grant? | Per-board TX cap (`MESH_BOARD_*`) |
+|---|---|---|---|---|---|
+| **RAK4631** (RAK4630 module) | **2AF6B-RAK4630** https://fccid.io/2AF6B-RAK4630 | **Single Modular Approval** [V]. RAK4631 is a declared series model of RAK4630 [V: similarity letter, https://fccid.co/fcc/2AF6B-RAK4630] | 902.3–914.9 (hybrid/FHSS, 0.036 W) and **903–914.2 DTS, 0.038 W (15.8 dBm)** [V] | **Yes** [V] | **15 dBm** |
+| **Seeed Wio-SX1262** (XIAO ESP32S3 kit) | **Z4T-WIO-SX1262** https://fccid.io/Z4T-WIO-SX1262 | **Single Modular Approval** [V]. OEM-integrator only; 20 cm; no co-location | 902.3–914.9 and **903–914.2**, 0.092 W (19.6 dBm), listed as DSS [V] | **Yes**, the 903–914.2 range is listed [V]. The XIAO ESP32S3 host has its own FCC ID [U, not checked] | **19 dBm** |
+| **Heltec WiFi LoRa 32 V3** | **2A2GJ-HTIT-WBR2H** https://fccid.io/2A2GJ-HTIT-WBR2H (granted 2026-06-03; the older 2A2GJ-HTIT is the 2022 "WiFi Kit LoRa Node") | **Not modular** ("Does not apply"; composite device) [V] | 902.3–914.9 **DSS** 0.0063 W; **923.3–927.5 DTS** 0.0155 W (11.9 dBm) [V] | **No.** Its DTS grant covers only 923.3–927.5 (the LoRaWAN downlink band) [V]. Whether this ID is the exact V3 SKU is [U] | build refused for this plan (would be 11 dBm, 923.3–927.5 only) |
+| **LilyGO T3-S3** | **2ASYE-T3-S3** https://fccid.io/2ASYE-T3-S3 (V1.3: 2ASYE-T3-S3-V13 https://fccid.io/2ASYE-T3-S3-V13) | **Not modular** [V] | "915 MHz" only, DTS, 0.0059 W (7.7 dBm); V1.3 0.005 W [V] | **No / unverified.** The grant lists a single 915 MHz frequency [V] | build refused |
+| **LilyGO T-Beam Supreme** | **2ASYE-T-BEAM-S3** https://fccid.io/2ASYE-T-BEAM-S3 [U: that this ID is the Supreme and not another T-Beam S3] | **Not modular** [V] | "915 MHz", DTS, 0.157 W (21.9 dBm) [V: https://fccid.co/fcc/2ASYE-T-BEAM-S3] | **No / unverified.** Only 915 MHz is listed | build refused |
+
+**Consequence for hardware:** to meet the HARD requirement, US-deployed relays use **RAK4631** or the **Seeed Wio-SX1262 / XIAO ESP32S3** kit. They are the only candidates whose grants list 903–914.2 MHz. Heltec V3 and the LilyGO boards stay non-transmitting or dev-only (into a dummy load / shielded) for the US until their grant test reports confirm BW500 on our channels, or until we add a per-board channel plan (open question 1). This supersedes the "default dev board" recommendation in §1 for any over-the-air US use.
 
 ---
 
@@ -112,10 +149,10 @@ off size field
 The routing fields (ttl/hop_count/next_hop) are **not** covered by the AEAD, because relays have to change them. Everything else is passed in as AEAD associated data: ver, type, flags (minus relay-mutable bits), src, dst, msg_id, frag_idx, frag_count.
 
 ### 3.3 Sizes
-- LoRa frame ≤ **222 B** (stays under the 400 ms dwell limit at SF7/BW125, with margin at BW250). That leaves 204 B of body.
+- LoRa frame ≤ **222 B** (US915 DTS profile, BW500: about 87 ms at SF7 and 277 ms at SF9, both under our 400 ms hard cap). That leaves 204 B of body.
 - Encrypted DATA body = `nonce-suffix(8) ‖ ciphertext ‖ tag(16)`. The full 24 B XChaCha20 nonce comes from `msg_id(4) ‖ src_id(4) ‖ 8 random bytes` sent in fragment 0, plus `frag_idx` for the others. The per-fragment nonce is HKDF(base_nonce, frag_idx) [design choice]. **About 180 B of plaintext per LoRa frame.**
 - ESP-NOW v2: up to 1470 B per frame. The same packet format is used with a bigger body, but frames are re-fragmented to LoRa size at LoRa hops.
-- **Practical small-file limit: 32 KB** (≤ 182 fragments, so frag_count fits in 1 byte with a cap of 255 → about 45 KB hard max). At about 0.2 s per frame plus a 10% duty budget, a 32 KB file takes roughly **6–7 minutes per hop** over LoRa [U]. Recommended: images ≤ 16 KB (compress to WebP on the phone), voice notes ≤ 8 KB (Codec2 or Opus at 6 kbps).
+- **Practical small-file limit: 32 KB** (≤ 182 fragments, so frag_count fits in 1 byte with a cap of 255 → about 45 KB hard max). At about 0.09 s per frame (SF7/BW500) plus a 10% duty budget, a 32 KB file takes roughly **2–3 minutes per hop** over LoRa [U]. Recommended: images ≤ 16 KB (compress to WebP on the phone), voice notes ≤ 8 KB (Codec2 or Opus at 6 kbps).
 - A signature (64 B) goes **inside** the ciphertext, so relays learn nothing. Ed25519 signs the header AD and the plaintext.
 
 ### 3.4 Ack / retry
@@ -145,7 +182,7 @@ The routing fields (ttl/hop_count/next_hop) are **not** covered by the AEAD, bec
 ---
 
 ## 5. Open questions
-1. FCC: does our chosen LoRa config (single channel, BW 250 kHz) fit each module's grant? Should we implement 50+-channel hopping instead (it makes discovery and sync harder)? Get a legal or test-lab opinion. [U]
+1. ~~FCC: single channel BW250, or hopping?~~ **Resolved:** single-channel BW250 is non-compliant and has been removed. We use DTS BW500 on the US915 903.0–914.2 MHz plan, region-locked at compile time, with power capped per board grant (§2). Still to do: (a) a test lab confirms the RAK4630 and Wio-SX1262 test reports cover BW500 at our SFs, including 6 dB BW ≥ 500 kHz and PSD; (b) decide whether to support Heltec V3 on its 923.3–927.5 MHz DTS range; (c) confirm what the LilyGO “915 MHz” grants actually cover; (d) a sold product needs its own Part 15 review and “Contains FCC ID” labelling. [U]
 2. Forward secrecy: ephemeral per message (+32 B) versus a ratchet once two phones have exchanged messages.
 3. Metadata privacy: rotating pseudonymous node IDs, and the collision rate of 4-byte IDs (birthday bound about 1% at ~9,300 users) [math].
 4. Spool abuse and DoS: rate limits per src_id. Should relays require a signed proof-of-membership token?
