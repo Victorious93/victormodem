@@ -6,16 +6,20 @@
 #include "modem.h"
 #endif
 #include "services.h"
+#include "fleet_config.h"
 
 void setup() {
   Serial.begin(115200);
+  cfg_begin();
+  prov_begin();
+  Serial.printf("VictorModem fw %s env %s%s\n", VM_FW_VERSION, VM_PIO_ENV, cfg_provisioned() ? "" : " (unprovisioned)");
 #ifdef VM_MODE_BRIDGE
   hub_begin();
   Serial.println("VictorModem bridge mode -> Pi 5 hub");
 #else
   modem.begin([](const String& type, const String& data){
     String ev = "{\"type\":\"event\",\"event\":\"" + type + "\",\"data\":" + data + "}";
-    Serial.println(ev);
+    Serial.println("event: " + ev);   // never start debug lines with '{' (provisioning channel)
     api_broadcast(ev);
     if (type == "sms_received") {          // auto-fetch body for the phone
       JsonDocument d; deserializeJson(d, data);
@@ -31,6 +35,7 @@ void setup() {
 }
 
 void loop() {
+  prov_loop();
 #ifdef VM_MODE_BRIDGE
   hub_loop();
 #else

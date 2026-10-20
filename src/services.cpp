@@ -2,6 +2,7 @@
 #include "services.h"
 #include "modem.h"
 #include "config.h"
+#include "fleet_config.h"
 #include <memory>
 
 String jesc(const String& s) {
@@ -54,12 +55,15 @@ void sms_list(const String& filter, ReplyFn r) {
 
 // ---- Data: PDP context + modem-internal TCP (PPPoS on roadmap) ----
 void data_connect(const String& apn, ReplyFn r) {
-  String a = apn.length() ? apn : DEFAULT_APN;
+  String a = apn.length() ? apn : String(cfg_apn());
+  String u = cfg_apn_user(), pw = cfg_apn_pass();
+  int auth = (u.length() || pw.length()) ? 3 : 0;   // 3 = PAP or CHAP
   modem.enqueue("AT+CGDCONT=1,\"IP\",\"" + a + "\"");
   if (modem.model() == ModemModel::EC25) {
-    modem.enqueue("AT+QICSGP=1,1,\"" + a + "\",\"\",\"\",1");
+    modem.enqueue("AT+QICSGP=1,1,\"" + a + "\",\"" + u + "\",\"" + pw + "\"," + String(auth ? 3 : 1));
     modem.enqueue("AT+QIACT=1", [r](const AtResult& x){ r(reply(x.ok)); }, 150000);
   } else {
+    if (auth) modem.enqueue("AT+CGAUTH=1," + String(auth) + ",\"" + pw + "\",\"" + u + "\"");
     modem.enqueue("AT+CGACT=1,1", nullptr, 30000);
     modem.enqueue("AT+NETOPEN", [r](const AtResult& x){ r(reply(x.ok, "\"raw\":\"" + jesc(x.lines) + "\"")); }, 30000);
   }

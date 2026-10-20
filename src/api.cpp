@@ -1,6 +1,7 @@
 // Transport-agnostic JSON protocol (see README "Protocol").
 #include "services.h"
 #include "config.h"
+#include "fleet_config.h"
 
 void api_broadcast(const String& json) { ble_notify(json); wifi_broadcast(json); }
 
@@ -14,7 +15,7 @@ void api_handle(const String& in, ReplyFn r) {
   String cmd = d["cmd"] | "";
   ReplyFn wrap = [r, id](const String& body) {
     r("{\"type\":\"response\",\"id\":" + String(id) + ",\"result\":" + body + "}"); };
-  if (String(d["token"] | "") != API_TOKEN) return wrap("{\"ok\":false,\"error\":\"unauthorized\"}");
+  if (String(d["token"] | "") != cfg_api_token()) return wrap("{\"ok\":false,\"error\":\"unauthorized\"}");
   if      (cmd == "dial")     voice_dial(d["number"] | "", wrap);
   else if (cmd == "answer")   voice_answer(wrap);
   else if (cmd == "hangup")   voice_hangup(wrap);

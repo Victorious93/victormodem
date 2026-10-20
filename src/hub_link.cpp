@@ -4,6 +4,7 @@
 #include <map>
 #include "services.h"
 #include "config.h"
+#include "fleet_config.h"
 
 static HardwareSerial hub(HUB_UART_NUM);
 struct Pending { long origId; ReplyFn reply; uint32_t t0; };
@@ -14,7 +15,7 @@ static uint32_t lastPong = 0, lastPing = 0;
 
 void hub_begin() {
   hub.setRxBufferSize(8192);
-  hub.begin(HUB_BAUD, SERIAL_8N1, HUB_RX_PIN, HUB_TX_PIN);
+  hub.begin(cfg_hub_baud(), SERIAL_8N1, HUB_RX_PIN, HUB_TX_PIN);
   hub.print("{\"type\":\"hello\"}\n");
 }
 bool hub_online() { return lastPong && millis() - lastPong < 15000; }
