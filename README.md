@@ -184,3 +184,9 @@ Commands are accepted **for the first 10 s after boot**, or **at any time while 
 | hub_baud | integer | 9600–3000000 | | bridge5g |
 
 Host tool: `tools/vm_provision.py /dev/ttyACM0 provision api_token=... ap_pass=...` (needs pyserial). Protocol tests (no pyserial): `python3 -m unittest tests/test_provision.py`. The firmware version is set by `fw_flags` in `platformio.ini`, and the env name comes from `$PIOENV`.
+
+## Android companion app (`android/`)
+
+Kotlin + Jetpack Compose, minSdk 26 / targetSdk 35. It's built for the Moto G Play 2025/2026. It connects over BLE GATT (service `7a1c0001-…`, RX write `…0002…`, TX notify `…0003…`, newline-reassembled), the ESP32 WebSocket `ws://192.168.4.1:81/`, or the Pi hub `ws://<hub>:8080/ws?token=…`. Screens: Connect (token entry), Dialer, SMS, Status. It posts notifications for incoming calls and SMS.
+
+Build: `cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
