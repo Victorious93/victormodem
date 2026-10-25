@@ -1,6 +1,30 @@
-<p align="center"><img src="assets/logo.jpg" width="200" alt="VictorModem neon ring logo"></p>
+<!-- victorious-fleet-readme-refresh:start -->
+<p align="center">
+  <img src="assets/logo.jpg" alt="VictorModem logo" width="200">
+</p>
 
 # VictorModem
+
+ESP32-S3 + cellular modem board / hub for an independent second line (hardware).
+
+**Package id:** `n/a (hardware; no Android applicationId in repo)`
+
+> **Package note:** ROADMAP: hardware, no package yet. Companion Android app mentioned in README is planning.
+
+**Status:** no-repo-yet / planning (repo exists; early scaffold) *(from [fleet-manifest ROADMAP](https://github.com/Victorious93/fleet-manifest/blob/main/ROADMAP.md))*
+
+## Install / build
+
+Hub tests: `cd hub && pip install -e .[test] && pytest` (per README). PlatformIO mentioned for firmware — treat as unverified unless you follow in-repo docs.
+
+_Steps above are taken from this repo’s build files / existing docs; anything not exercised in this refresh is unlabeled as verified on a device._
+
+## Victorious fleet
+
+- Monorepo: [https://github.com/Victorious93/victorious-fleet](https://github.com/Victorious93/victorious-fleet)
+- Fleet site: [https://victorious-framework.pages.dev](https://victorious-framework.pages.dev)
+
+<!-- victorious-fleet-readme-refresh:end -->
 
 Don Victor's second phone line in a box: an **ESP32-S3** drives a **cellular modem** (SIMCom SIM7600, SIMCom A7670, or Quectel EC25) with **its own SIM**. Your phone connects over **BLE** or **Wi-Fi** to place and answer calls, send and receive SMS, and use the modem's data connection.
 
