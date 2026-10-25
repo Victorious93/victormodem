@@ -156,3 +156,9 @@ SIM8262A modules get hot under sustained 5G data (heat-pad the module to the HAT
 4. Untested on hardware: SIM8262A USB port layout (which ttyUSB is AT), `AT$QCRMCALL` RNDIS usage, and `AT+C5GREG` availability depend on firmware. The hub probes and fails soft.
 5. SMS is GSM 7-bit text mode only (no UCS2/emoji or concatenation yet), and the bridge's BLE notify throughput is limited (~180 B chunks).
 6. Security: one shared token, Wi-Fi AP with WPA2 PSK, and a plain-HTTP hub API. Put the hub on a trusted LAN or behind TLS, and change every default in `config.h` and `config.toml`.
+
+## Android companion app (`android/`)
+
+Kotlin + Jetpack Compose, minSdk 26 / targetSdk 35. It's built for the Moto G Play 2025/2026. It connects over BLE GATT (service `7a1c0001-…`, RX write `…0002…`, TX notify `…0003…`, newline-reassembled), the ESP32 WebSocket `ws://192.168.4.1:81/`, or the Pi hub `ws://<hub>:8080/ws?token=…`. Screens: Connect (token entry), Dialer, SMS, Status. It posts notifications for incoming calls and SMS.
+
+Build: `cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
