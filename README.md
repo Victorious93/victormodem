@@ -181,6 +181,34 @@ SIM8262A modules get hot under sustained 5G data (heat-pad the module to the HAT
 5. SMS is GSM 7-bit text mode only (no UCS2/emoji or concatenation yet), and the bridge's BLE notify throughput is limited (~180 B chunks).
 6. Security: one shared token, Wi-Fi AP with WPA2 PSK, and a plain-HTTP hub API. Put the hub on a trusted LAN or behind TLS, and change every default in `config.h` and `config.toml`.
 
+## Fleet USB provisioning (contract v1)
+
+> **Status: build-verified only, untested on hardware.**
+
+JSON lines over the USB serial port at 115200 baud (native USB CDC on the ESP32-S3 envs, UART0 / the CH9102 bridge on `tsim7600_4g`). Each object is one line ending in `\n`. Firmware log/debug lines never start with `{`, and modem events are printed as `event: {...}`. Hosts should ignore any line that doesn't start with `{`.
+
+Commands are accepted **for the first 10 s after boot**, or **at any time while the device is unprovisioned** (no `api_token` in NVS). Values live in Preferences/NVS namespace `fleet` and override the `include/config.h` defaults at runtime.
+
+| cmd | request | reply |
+|---|---|---|
+| hello | `{"v":1,"cmd":"hello"}` | `{"v":1,"ok":true,"project":"victormodem","fw":"0.2.0","env":"<pio env>","chip":"esp32s3\|esp32","keys":[...]}` |
+| get | `{"v":1,"cmd":"get"}` | `{"v":1,"ok":true,"provisioned":bool,"cfg":{...}}`. Secrets come back as `"***"` |
+| provision | `{"v":1,"cmd":"provision","cfg":{...}}` | `{"v":1,"ok":true}` or `{"v":1,"ok":false,"err":"..."}`. The whole cfg is validated before anything is written, and unknown keys are rejected. Takes effect after `reboot` |
+| reboot | `{"v":1,"cmd":"reboot"}` | `{"v":1,"ok":true}`, then restarts |
+| factory_reset | `{"v":1,"cmd":"factory_reset"}` | `{"v":1,"ok":true}`. Clears the `fleet` namespace (reboot to apply) |
+
+| key | type | limits | secret | envs |
+|---|---|---|---|---|
+| ap_ssid | string | 1–32 | | all |
+| ap_pass | string | 8–63 | yes | all |
+| api_token | string | 16–128 | yes | all |
+| apn | string | 0–63 | | direct4g, tsim7600_4g |
+| apn_user | string | 0–63 | | direct4g, tsim7600_4g |
+| apn_pass | string | 0–63 | yes | direct4g, tsim7600_4g |
+| hub_baud | integer | 9600–3000000 | | bridge5g |
+
+Host tool: `tools/vm_provision.py /dev/ttyACM0 provision api_token=... ap_pass=...` (needs pyserial). Protocol tests (no pyserial): `python3 -m unittest tests/test_provision.py`. The firmware version is set by `fw_flags` in `platformio.ini`, and the env name comes from `$PIOENV`.
+
 ## Android companion app (`android/`)
 
 Kotlin + Jetpack Compose, minSdk 26 / targetSdk 35. It's built for the Moto G Play 2025/2026. It connects over BLE GATT (service `7a1c0001-…`, RX write `…0002…`, TX notify `…0003…`, newline-reassembled), the ESP32 WebSocket `ws://192.168.4.1:81/`, or the Pi hub `ws://<hub>:8080/ws?token=…`. Screens: Connect (token entry), Dialer, SMS, Status. It posts notifications for incoming calls and SMS.

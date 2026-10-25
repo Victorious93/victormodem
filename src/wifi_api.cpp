@@ -4,13 +4,14 @@
 #include <WebSocketsServer.h>
 #include "services.h"
 #include "config.h"
+#include "fleet_config.h"
 
 static WebServer http(80);
 static WebSocketsServer ws(81);
 
 void wifi_begin() {
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS);
+  WiFi.softAP(cfg_ap_ssid(), cfg_ap_pass());
   http.on("/", [](){ http.send(200, "text/plain", "VictorModem API. POST JSON to /api, events on ws://192.168.4.1:81/"); });
   http.on("/api", HTTP_POST, [](){
     // Response is async; HTTP returns "queued" and the result arrives on WebSocket.
