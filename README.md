@@ -1,30 +1,29 @@
-<!-- victorious-fleet-readme-refresh:start -->
-<p align="center">
-  <img src="assets/logo.jpg" alt="VictorModem logo" width="200">
-</p>
+<div align="center">
+
+<img src="assets/logo.jpg" width="200" alt="VictorModem logo"/>
 
 # VictorModem
 
-ESP32-S3 + cellular modem board / hub for an independent second line (hardware).
+**An ESP32-S3 + cellular modem second phone line, controlled from your phone.**
 
-**Package id:** `n/a (hardware; no Android applicationId in repo)`
+<p>
+  <img src="https://img.shields.io/badge/platform-ESP32%20%26%20Pi%20%26%20Android-00E5FF?style=flat-square&labelColor=0B0F1A" alt="Platform"/>
+  <a href="https://victorious-framework.pages.dev"><img src="https://img.shields.io/badge/Victorious-Framework-FF2BD6?style=flat-square&labelColor=0B0F1A" alt="Victorious Framework"/></a>
+</p>
 
-> **Package note:** ROADMAP: hardware, no package yet. Companion Android app mentioned in README is planning.
+<p><a href="https://victorious-framework.pages.dev">Victorious Framework</a></p>
 
-**Status:** no-repo-yet / planning (repo exists; early scaffold) *(from [fleet-manifest ROADMAP](https://github.com/Victorious93/fleet-manifest/blob/main/ROADMAP.md))*
+</div>
 
-## Install / build
+---
 
-Hub tests: `cd hub && pip install -e .[test] && pytest` (per README). PlatformIO mentioned for firmware — treat as unverified unless you follow in-repo docs.
+> **Status: early scaffold, hardware design.** There is no Android release and no CI. Firmware, hub and app code exist, but treat hardware behaviour as unverified unless a doc in this repository says it was tested. Companion app package id: `com.victorious.victormodem`; the hardware itself has no Android package.
 
-_Steps above are taken from this repo’s build files / existing docs; anything not exercised in this refresh is unlabeled as verified on a device._
+## Install and build
 
-## Victorious fleet
-
-- Monorepo: [https://github.com/Victorious93/victorious-fleet](https://github.com/Victorious93/victorious-fleet)
-- Fleet site: [https://victorious-framework.pages.dev](https://victorious-framework.pages.dev)
-
-<!-- victorious-fleet-readme-refresh:end -->
+- **Hub tests:** `cd hub && pip install -e .[test] && pytest`
+- **Firmware:** PlatformIO environments listed below (`pio run -e <env>`).
+- **Android app:** `cd android && ./gradlew assembleDebug`. No release APK has been published.
 
 Don Victor's second phone line in a box: an **ESP32-S3** drives a **cellular modem** (SIMCom SIM7600, SIMCom A7670, or Quectel EC25) with **its own SIM**. Your phone connects over **BLE** or **Wi-Fi** to place and answer calls, send and receive SMS, and use the modem's data connection.
 
@@ -214,3 +213,19 @@ Host tool: `tools/vm_provision.py /dev/ttyACM0 provision api_token=... ap_pass=.
 Kotlin + Jetpack Compose, minSdk 26 / targetSdk 35. It's built for the Moto G Play 2025/2026. It connects over BLE GATT (service `7a1c0001-…`, RX write `…0002…`, TX notify `…0003…`, newline-reassembled), the ESP32 WebSocket `ws://192.168.4.1:81/`, or the Pi hub `ws://<hub>:8080/ws?token=…`. Screens: Connect (token entry), Dialer, SMS, Status. It posts notifications for incoming calls and SMS.
 
 Build: `cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
+
+---
+
+## Victorious fleet
+
+VictorModem is part of the [Victorious Framework](https://victorious-framework.pages.dev), a family of Android and PC tools by Don Victor. **Every app works standalone; fleet integrations are optional** and never required.
+
+Related: [VictorLaunch](https://github.com/Victorious93/victorlaunch) (fleet launcher and theme provider), [droidcommand-AI](https://github.com/Victorious93/droidcommand-AI) (fleet controller), [victorious-fleet](https://github.com/Victorious93/victorious-fleet) (index of all fleet apps). The full roster lives in [victorious-fleet](https://github.com/Victorious93/victorious-fleet), and live status is in [fleet-manifest](https://github.com/Victorious93/fleet-manifest).
+
+## Contributing
+
+Issues and pull requests are welcome. Keep changes focused, match the existing code style, never commit secrets or release keys, and keep any fleet integration optional so the app still works on its own. Open a PR against the default branch and wait for CI to pass.
+
+## License
+
+This repository does not include a LICENSE file yet, so no license is granted beyond what the author states elsewhere. Please open an issue before reusing the code.
